@@ -92,17 +92,19 @@ def create_drink():
     new_recipe = data.get('recipe')
 
     new_drink = Drink(title=new_title, recipe=json.dumps(new_recipe))
-
-    new_drink.insert()
-
-    inserted_drink = Drink.query.filter_by(title=new_title).one_or_none()
-    print('INSERTED:', inserted_drink)
-
+    try:
+        new_drink.insert()
+    except:
+        db.session.rollback()
+        abort(422)
+    created_drink = Drink.query.filter_by(title=new_title).one_or_none()
+    if none:
+        abort(404, 'error: new drink not created')
 
     return jsonify({
         'success': True,
         'status_code': 200,
-        'drinks': inserted_drink.long()
+        'drinks': created_drink.long()
     })
 
 '''
@@ -116,6 +118,37 @@ def create_drink():
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def update_drinks(id):
+
+    drink = Drink.query.filter_by(id=id).one_or_none()
+
+    data = request.get_json()
+
+    if data.get('title'):
+        updated_title = data.get('title')
+        drink.title = updated_title 
+
+    
+    if data.get('recipe'):
+        updated_recipe = data.get('recipe')
+        drink.recipe = json.dumps(updated_recipe)
+
+    drink.update()
+
+    updated_drink = Drink.query.filter_by(id=id).one_or_none()
+
+    return jsonify({
+        'success': True,
+        'status_code': 200,
+        'drinks': [updated_drink.long()]
+    })
+
+    
+
+
+
 
 
 '''
@@ -128,6 +161,19 @@ def create_drink():
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink(id):
+
+    drink = Drink.query.filter_by(id=id).one_or_none()
+
+    drink.delete()
+
+    return jsonify({
+        'success': True,
+        'status_code': 200,
+        'delete': id
+    })
 
 
 ## Error Handling
