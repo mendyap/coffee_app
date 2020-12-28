@@ -33,7 +33,6 @@ class AuthError(Exception):
 def get_token_auth_header():
 
     auth = request.headers.get('Authorization', None)
-    print('Auth:', auth)
     if not auth:
        raise AuthError({
             'code': 'authorization header missing',
@@ -41,7 +40,6 @@ def get_token_auth_header():
         }, 401)
 
     parts = auth.split(' ')
-    print('part', parts[0])
     if parts[0].lower() != 'bearer':
         raise AuthError({
             'code': 'invalid header',
@@ -49,7 +47,6 @@ def get_token_auth_header():
         }, 401)
 
     token = parts[1]
-    print(token)
     return token
 
 
@@ -74,7 +71,7 @@ def check_permissions(permission, payload):
         raise AuthError({
         'code': 'permission denied',
         'description': 'user lacks appropriate permission'
-    }, 403)
+    }, 401)
 
     return True
 
@@ -93,11 +90,8 @@ def check_permissions(permission, payload):
 '''
 def verify_decode_jwt(token):
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
-    print('JSONURL:', jsonurl)
     jwks = json.loads(jsonurl.read())
-    print('JWKS:', jwks)
     unverified_header = jwt.get_unverified_header(token)
-    print('Unverified Header:', unverified_header)
     rsa_key = {}
     if 'kid' not in unverified_header:
         raise AuthError({
@@ -123,7 +117,6 @@ def verify_decode_jwt(token):
                 audience=API_AUDIENCE,
                 issuer='https://' + AUTH0_DOMAIN + '/'
             )
-            print('RSA KEY:', rsa_key)
             return payload
 
         except jwt.ExpiredSignatureError:

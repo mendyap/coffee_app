@@ -32,7 +32,6 @@ db = SQLAlchemy(app)
 @app.route('/drinks')
 def get_drinks():
     drinks = Drink.query.all()
-    print(drinks)
     if len(drinks) == 0:
         abort(404)
     drink_short = []
@@ -61,7 +60,6 @@ def get_drinks():
 @requires_auth('get:drinks-detail')
 def get_drinks_detail():
     drinks = Drink.query.all()
-    print(drinks)
     if len(drinks) == 0:
         abort(404)
     drink_long = []
@@ -90,15 +88,17 @@ def create_drink():
 
     new_title = data.get('title')
     new_recipe = data.get('recipe')
+    if (new_title is None) or (new_recipe is None):
+        abort (422)
 
     new_drink = Drink(title=new_title, recipe=json.dumps(new_recipe))
     try:
         new_drink.insert()
     except:
         db.session.rollback()
-        abort(422)
+        abort(422, 'unprocessable or entry may already exist')
     created_drink = Drink.query.filter_by(title=new_title).one_or_none()
-    if none:
+    if created_drink is None:
         abort(404, 'error: new drink not created')
 
     return jsonify({
@@ -123,6 +123,8 @@ def create_drink():
 def update_drinks(id):
 
     drink = Drink.query.filter_by(id=id).one_or_none()
+    if drink is None:
+        abort(404)
 
     data = request.get_json()
 
@@ -134,10 +136,15 @@ def update_drinks(id):
     if data.get('recipe'):
         updated_recipe = data.get('recipe')
         drink.recipe = json.dumps(updated_recipe)
-
-    drink.update()
+    try:
+        drink.update()
+    except:
+        db.session.rollback()
+        abort(422)
 
     updated_drink = Drink.query.filter_by(id=id).one_or_none()
+    if updated_drink is None:
+        abort(422)
 
     return jsonify({
         'success': True,
@@ -166,8 +173,14 @@ def update_drinks(id):
 def delete_drink(id):
 
     drink = Drink.query.filter_by(id=id).one_or_none()
+    if drink is None:
+        abort(404)
 
-    drink.delete()
+    try:
+        drink.delete()
+    except:
+        db.session.rollback()
+        abort(422)
 
     return jsonify({
         'success': True,
