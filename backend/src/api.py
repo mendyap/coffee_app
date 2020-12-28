@@ -30,14 +30,20 @@ db = SQLAlchemy(app)
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks')
+# No permission required since this is a public route with access to all
 def get_drinks():
+    # query all drinks
     drinks = Drink.query.all()
+    # if there are no drinks in DB then abort
     if len(drinks) == 0:
         abort(404)
+    # create list for drinks
     drink_short = []
+    # iterate through drinks list and append the .short formatted version (see models.py for implementation) to the above list
     for drink in drinks:
         drink_short.append(drink.short())
     
+    # return return jsonified response that includes the drinks data in .short format
     return jsonify({
         'success': True,
         'status_code': 200,
@@ -57,15 +63,17 @@ def get_drinks():
 '''
 
 @app.route('/drinks-detail')
+# requires additional permissions, Currently only for baristas and managers.
 @requires_auth('get:drinks-detail')
 def get_drinks_detail():
     drinks = Drink.query.all()
     if len(drinks) == 0:
         abort(404)
     drink_long = []
+    # iterate through list of drinks and append them in .long form (see models.py for implementation) to the list above
     for drink in drinks:
         drink_long.append(drink.long())
-    
+    # return jsonified response that includes the drinks data in .long format
     return jsonify({
         'success': True,
         'status_code': 200,
@@ -82,25 +90,32 @@ def get_drinks_detail():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks', methods=['POST'])
+# requires additional permission. Currently only permitted for Managers
 @requires_auth('post:drinks')
 def create_drink():
-    data = request.get_json()
+    # retrieve json data included in the 'POST' request
+    data = request.get_json() 
 
+    # get title and recipe of drink
     new_title = data.get('title')
     new_recipe = data.get('recipe')
+    # check that json request includes title and recipe
     if (new_title is None) or (new_recipe is None):
         abort (422)
-
+    # assign title and recipe to a new drink
     new_drink = Drink(title=new_title, recipe=json.dumps(new_recipe))
     try:
+        # insert new drink into database
         new_drink.insert()
     except:
+        # rollback if insert fails and abort with error
         db.session.rollback()
         abort(422, 'unprocessable or entry may already exist')
+    # retrieve created drink data from DB    
     created_drink = Drink.query.filter_by(title=new_title).one_or_none()
     if created_drink is None:
         abort(404, 'error: new drink not created')
-
+    # return json with created drink info in .long format
     return jsonify({
         'success': True,
         'status_code': 200,
@@ -119,33 +134,37 @@ def create_drink():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks/<int:id>', methods=['PATCH'])
+# requires additional permission. Currently only permitted for Managers
 @requires_auth('patch:drinks')
 def update_drinks(id):
-
+    # retrieve drink data from DB filtered by the ID passed into the function from the http request
     drink = Drink.query.filter_by(id=id).one_or_none()
     if drink is None:
         abort(404)
-
+    # retrieve json data included in the 'PATCH' request
     data = request.get_json()
-
+    # check if user would like to update title or recipe
     if data.get('title'):
         updated_title = data.get('title')
+        # assign new title to existing drink object
         drink.title = updated_title 
-
     
     if data.get('recipe'):
         updated_recipe = data.get('recipe')
+        # assign new recipe to existing drink object
         drink.recipe = json.dumps(updated_recipe)
     try:
+        # attempt to update DB
         drink.update()
     except:
+        # rollback if update fails and abort with error
         db.session.rollback()
         abort(422)
-
+    # retreive updated drink data from DB
     updated_drink = Drink.query.filter_by(id=id).one_or_none()
     if updated_drink is None:
         abort(422)
-
+    # return json response with update drink data in .long format
     return jsonify({
         'success': True,
         'status_code': 200,
@@ -169,19 +188,21 @@ def update_drinks(id):
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks/<int:id>', methods=['DELETE'])
+# requires additional permission. Currently only permitted for Managers
 @requires_auth('delete:drinks')
 def delete_drink(id):
-
+    # retrieve drink data from DB filtered by the ID passed into the function from the http request
     drink = Drink.query.filter_by(id=id).one_or_none()
     if drink is None:
         abort(404)
-
+    # attempt to delete drink
     try:
         drink.delete()
+    # if delete fails rollback and abort with error
     except:
         db.session.rollback()
         abort(422)
-
+    # return json object with successfully deleted drink id
     return jsonify({
         'success': True,
         'status_code': 200,

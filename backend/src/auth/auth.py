@@ -31,7 +31,7 @@ class AuthError(Exception):
     return the token part of the header
 '''
 def get_token_auth_header():
-
+    # get Authorization from request headers
     auth = request.headers.get('Authorization', None)
     if not auth:
        raise AuthError({
@@ -39,13 +39,16 @@ def get_token_auth_header():
             'description': 'Authorization header is expected'
         }, 401)
 
+    #split authorization into 2 parts
     parts = auth.split(' ')
+    # check if authorization type is a bearer token
     if parts[0].lower() != 'bearer':
         raise AuthError({
             'code': 'invalid header',
             'description': 'Authorization header must start with "Bearer"'
         }, 401)
 
+    # assign second part as token
     token = parts[1]
     return token
 
@@ -62,11 +65,13 @@ def get_token_auth_header():
     return true otherwise
 '''
 def check_permissions(permission, payload):
+    # check for permissions 'key' in jwt key
     if 'permissions' not in payload:
         raise AuthError({
         'code': 'invalid header',
         'decription': 'no permissions in header'
     }, 400)
+    # check that permission matches required permissions for access
     if permission not in payload['permissions']:
         raise AuthError({
         'code': 'permission denied',
@@ -89,6 +94,7 @@ def check_permissions(permission, payload):
     !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 '''
 def verify_decode_jwt(token):
+    # gets signature verification from Auth0
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
     unverified_header = jwt.get_unverified_header(token)
@@ -140,9 +146,6 @@ def verify_decode_jwt(token):
                 'description': 'Unable to find the appropriate key.'
             }, 400)
 
-
-    raise Exception('Not Implemented')
-
 '''
 @TODO implement @requires_auth(permission) decorator method
     @INPUTS
@@ -153,13 +156,18 @@ def verify_decode_jwt(token):
     it should use the check_permissions method validate claims and check the requested permission
     return the decorator which passes the decoded payload to the decorated method
 '''
+# authentication and authorization decorator
 def requires_auth(permission=''):
     def requires_auth_decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
+            # get authentication token
             token = get_token_auth_header()
+            # verify token
             payload = verify_decode_jwt(token)
+            # check authorization
             check_permissions(permission, payload)
+            # return wrapped function
             return f(*args, **kwargs)
 
         return wrapper
